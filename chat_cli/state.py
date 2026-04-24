@@ -18,14 +18,17 @@ class SessionState:
     def pop_last(self) -> Optional[Message]:
         return self.messages.pop() if self.messages else None
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self, title: str = None) -> dict:
+        data = {
             "messages": [{"role": m.role, "content": m.content, "message_id": m.message_id, "reasoning": m.reasoning} for m in self.messages],
             "model": self.model,
             "theme": self.theme,
             "base_url": self.base_url,
             "api_key": self.api_key,
         }
+        if title:
+            data["title"] = title
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "SessionState":

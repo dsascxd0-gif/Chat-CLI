@@ -4,6 +4,7 @@ from textual.widgets import ListView, ListItem
 
 from .api import Message, LMStudioClient
 from .logging_config import log_operation
+from .state import SessionState
 
 
 class Command(ABC):
@@ -69,7 +70,6 @@ class ModelCommand(Command):
                 msg = f"**Current Model**: {current}\n\nNo models available from API"
             app.state.add_message("assistant", msg)
             app.refresh_chat()
-            app.state_manager.save(app.state)
 
 
 class ThemeCommand(Command):
@@ -109,7 +109,7 @@ class BaseURLCommand(Command):
                 app.notify(f"Loaded {len(models)} models from new URL")
             except Exception as e:
                 app.notify(f"Failed to load models: {e}")
-            app.state_manager.save(app.state)
+            app._save_current_session()
             log_operation("Base URL changed", new_url)
         else:
             app.notify(f"Current Base URL: {app.state.base_url}")
@@ -125,7 +125,43 @@ class APIKeyCommand(Command):
             app.state.api_key = new_key
             app.api = LMStudioClient(base_url=app.state.base_url, api_key=new_key)
             app.notify("API key set.")
-            app.state_manager.save(app.state)
+            app._save_current_session()
             log_operation("API key changed")
         else:
             app.notify(f"Current API key: {app.state.api_key}")
+
+
+class NewSessionCommand(Command):
+    name = "new"
+    description = "Create a new session. Usage: /new [title]"
+
+    async def execute(self, app, args: str):
+        title = args.strip() if args.strip() else None
+        filename = app.session_mgr.create_session(title)
+        # 保存当前会话
+        app._save_current_session()
+        # 切换到新会话
+        app.current_session_file = filename
+        app.state = SessionState()
+        app.state.base_url = getattr(app.session_mgr, 'base_url', "http://127.0.0.1:1234/v1")
+        app.state.api_key = "sk-not-needed"
+        app.refresh_session_list()
+        app.refresh_chat()
+        app.notify(f"Created new session: {title or filename}")
+        log_operation("New session created", filename)
+
+
+class TitleCommand(Command):
+    name = "title"
+    description = "Set current session title. Usage: /title <new_title>"
+
+    async def execute(self, app, args: str):
+        if not args.strip():
+            app.notify("Usage: /title <new_title>")
+            return
+        
+        new_title = args.strip()
+        app.session_mgr.set_title(app.current_session_file, new_title)
+        app.refresh_session_list()
+        app.notify(f"Session title set to: {new_title}")
+        log_operation("Title changed", new_title)

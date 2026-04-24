@@ -12,7 +12,8 @@ from rich.console import Group
 
 from .api import LMStudioClient, Message, StreamChunk
 from .state import SessionState, StateManager
-from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, ModelCommand, ThemeCommand, QuitCommand
+from .session_manager import SessionManager
+from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ModelCommand, ThemeCommand, QuitCommand
 from .logging_config import log_operation, log_error, log_warning, log_info
 
 
@@ -150,13 +151,17 @@ class MessageWidget(Static):
 
 class ChatApp(App):
     CSS = """
-    Screen { layout: vertical; }
+    Screen { layout: horizontal; }
+    #sidebar { width: 20; height: 100%; background: $panel; padding: 0; }
+    Vertical { width: 100%; }
+    #session-list { height: 1fr; padding: 0; margin: 0; }
+    ListItem { padding: 0 1; margin: 0; }
+    #main-panel { width: 1fr; layout: vertical; }
     #chat-view { height: 1fr; overflow-y: auto; }
     #input-bar { dock: bottom; height: 3; }
     Input { width: 100%; }
     #suggestions { dock: bottom; height: 1; background: $surface; color: $text-muted; display: none; }
     #suggestions.visible { display: block; }
-    ListItem { margin: 1 0; }
     """
 
     BINDINGS = [
@@ -167,40 +172,102 @@ class ChatApp(App):
     def __init__(self):
         super().__init__()
         self.state = SessionState()
-        self.state_manager = StateManager()
+        self.session_mgr = SessionManager()
         self.command_registry = CommandRegistry()
         self._register_commands()
         self._msg_widgets = {}
+        self.current_session_file = ""
+        self._thinking_task = None
 
     def _register_commands(self):
         self.model_cmd = ModelCommand()
         self.command_registry.register(self.model_cmd)
-        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, ThemeCommand, QuitCommand]:
+        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ThemeCommand, QuitCommand]:
             self.command_registry.register(cmd_cls())
 
     def compose(self) -> ComposeResult:
-        with Vertical():
-            yield ListView(id="chat-view")
-            with Horizontal(id="input-bar"):
-                yield CommandInput(placeholder="Type a message or /help...", id="msg-input")
-            yield Static("", id="suggestions")
+        with Horizontal():
+            with Vertical(id="sidebar"):
+                yield Static("Sessions", id="sidebar-title")
+                yield ListView(id="session-list")
+            with Vertical(id="main-panel"):
+                yield ListView(id="chat-view")
+                with Horizontal(id="input-bar"):
+                    yield CommandInput(placeholder="Type a message or /help...", id="msg-input")
+                yield Static("", id="suggestions")
 
     async def on_mount(self):
-        self.state = self.state_manager.load()
-        # 使用保存的 base_url 和 api_key 重新初始化 API 客户端
-        base_url = getattr(self.state, 'base_url', "http://127.0.0.1:1234/v1")
-        api_key = getattr(self.state, 'api_key', "sk-not-needed")
+        # 迁移旧 state.json
+        self.session_mgr.migrate_from_old()
+        
+        # 获取会话列表
+        sessions = self.session_mgr.list_sessions()
+        if not sessions:
+            # 创建第一个会话
+            self.current_session_file = self.session_mgr.create_session("session-1")
+        else:
+            # 加载最近或第一个会话
+            latest = self.session_mgr.get_latest_session()
+            self.current_session_file = latest or sessions[0]["filename"]
+        
+        # 加载会话状态
+        self.state = self.session_mgr.load_session(self.current_session_file)
+        
+        # 初始化 API
+        base_url = self.state.base_url
+        api_key = self.state.api_key
         self.api = LMStudioClient(base_url=base_url, api_key=api_key)
+        
+        # 刷新UI
+        self.refresh_session_list()
         self.refresh_chat()
         self.query_one("#msg-input").focus()
-        log_operation("App started", f"Loaded {len(self.state.messages)} messages")
         
+        # 加载模型
         try:
             models = await self.api.list_models()
             self.model_cmd.set_models(models)
             log_operation("Models loaded", f"{len(models)} models")
         except Exception as e:
             log_warning(f"Failed to load models: {e}")
+
+    def _save_current_session(self):
+        """保存当前会话"""
+        if self.current_session_file:
+            title = self.session_mgr.get_title(self.current_session_file)
+            self.session_mgr.save_current(self.state, self.current_session_file, title)
+
+    def refresh_session_list(self):
+        """刷新侧边栏会话列表"""
+        lv = self.query_one("#session-list", ListView)
+        lv.clear()
+        
+        sessions = self.session_mgr.list_sessions()
+        for s in sessions:
+            # 创建带标题的列表项，显示 title
+            item = ListItem(Static(f"{s['title']}", markup=False))
+            lv.append(item)
+        
+        # 选中当前会话
+        for i, s in enumerate(sessions):
+            if s["filename"] == self.current_session_file:
+                lv.index = i
+                break
+
+    async def on_list_view_selected(self, event: ListView.Selected):
+        if event.list_view.id == "session-list" and event.item is not None:
+            sessions = self.session_mgr.list_sessions()
+            idx = event.index
+            if 0 <= idx < len(sessions):
+                new_file = sessions[idx]["filename"]
+                if new_file != self.current_session_file:
+                    self._save_current_session()
+                    self.current_session_file = new_file
+                    self.state = self.session_mgr.load_session(new_file)
+                    if self._thinking_task:
+                        self._thinking_task.cancel()
+                    self.refresh_chat()
+                    self.refresh_session_list()
 
     def refresh_chat(self):
         lv = self.query_one("#chat-view", ListView)
@@ -299,15 +366,24 @@ class ChatApp(App):
         full_reasoning = ""
         full_content = ""
         first_token = True
+        content_start_time = None
 
         try:
             async for chunk in self.api.chat_stream(self.state.messages[:-1], self.state.model):
+                now = time.time()
+                
+                if first_token:
+                    # 开始计时，只有超过 1 秒才取消 thinking 动画
+                    if content_start_time is None:
+                        content_start_time = now
+                    elif now - content_start_time >= 1.0:
+                        # 延迟 1 秒后取消 thinking，确保不会闪烁
+                        thinking_task.cancel()
+                        first_token = False
+                
                 if isinstance(chunk, str):
                     # Backwards compatibility
                     full_content += chunk
-                    if first_token:
-                        thinking_task.cancel()
-                        first_token = False
                     assistant_msg.content = full_content
                     widget.update_content(full_content, thinking=False, reasoning=full_reasoning)
                 else:
@@ -318,9 +394,6 @@ class ChatApp(App):
                         widget.update_reasoning(full_reasoning)
                     elif chunk.type == "content":
                         full_content += chunk.content
-                        if first_token:
-                            thinking_task.cancel()
-                            first_token = False
                         assistant_msg.content = full_content
                         assistant_msg.reasoning = full_reasoning
                     widget.update_content(full_content, thinking=False, reasoning=full_reasoning)
@@ -337,7 +410,7 @@ class ChatApp(App):
         assistant_msg.content = full_content
         assistant_msg.reasoning = full_reasoning
         widget.update_content(full_content, thinking=False, reasoning=full_reasoning)
-        self.state_manager.save(self.state)
+        self._save_current_session()
         log_operation("AI response", f"content={len(full_content)}, reasoning={len(full_reasoning)}")
 
     async def _update_thinking_loop(self, widget: MessageWidget):
@@ -352,15 +425,15 @@ class ChatApp(App):
         msg = self.state.pop_last()
         if msg:
             self.refresh_chat()
-            self.state_manager.save(self.state)
+            self._save_current_session()
             self.notify(f"Removed last message ({msg.role})")
             log_operation("Undo", msg.role)
         else:
             self.notify("Nothing to undo")
 
     async def action_quit(self):
-        self.state_manager.save(self.state)
-        log_operation("App quit", f"{len(self.state.messages)} messages")
+        self._save_current_session()
+        log_operation("App quit", f"{len(self.state.messages)} messages in {self.current_session_file}")
         self.exit()
 
 
