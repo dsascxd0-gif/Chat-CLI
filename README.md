@@ -30,6 +30,8 @@ python main.py
 - `/help` - Show help
 - `/baseurl` - Change Base URL (the new Base URL must include the `http` or `https` prefix, e.g. `https://api.example.com/v1` or `http://api.example.com/v1`). Syntax: `/baseurl <BaseURL>`
 - `/apikey` - Change API key. Syntax: `/apikey <apikey>`
+- `/new` - New session. Syntax: `/new <title>`
+- `/title` - Change session title. Syntax: `/title <title>`
 - `/model` - View / switch model. Syntax: `/model <model>`
 - `/clear` - Clear conversation
 - `/quit` - Quit
