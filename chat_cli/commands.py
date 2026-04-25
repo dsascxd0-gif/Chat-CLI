@@ -175,7 +175,7 @@ class TitleCommand(Command):
 
 
 class SystemPromptCommand(Command):
-    name = "systemprompt"
+    name = "prompt"
     description = "Set or show system prompt. Saved to session."
 
     async def execute(self, app, args: str):
