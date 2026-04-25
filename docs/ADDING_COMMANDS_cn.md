@@ -32,8 +32,14 @@ class MyCommand(Command):
             # 不带参数的情况
             app.notify("执行了我的命令")
 ```
+### 步骤 2: 添加导入
 
-### 步骤 2: 注册命令
+在 `chat_cli/app.py` 的第16行处导入你的命令：
+
+```python
+from .commands import CommandRegistry, HelpCommand, ClearCommand, MyCommand, ThemeCommand, QuitCommand
+```
+### 步骤 3: 注册命令
 
 在 `chat_cli/app.py` 的 `ChatApp._register_commands()` 方法中注册：
 
@@ -45,7 +51,7 @@ def _register_commands(self):
         self.command_registry.register(cmd_cls())
 ```
 
-### 步骤 3: 测试
+### 步骤 4: 测试
 
 运行应用并测试：
 ```powershell
@@ -72,6 +78,12 @@ class TimeCommand(Command):
         app.state.add_message("assistant", f"Current time: {now}")
         app.refresh_chat()
         app.state_manager.save(app.state)
+```
+
+**在 `chat_cli/app.py` 的第16行导入**
+
+```python
+from .commands import CommandRegistry, HelpCommand, ClearCommand, TimeCommand, ThemeCommand, QuitCommand
 ```
 
 **在 `chat_cli/app.py` 的 `_register_commands()` 中注册：**

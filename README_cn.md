@@ -35,6 +35,7 @@ python main.py
 - `/del` - 删除会话，语法`/del <session name>` 输入两次来确认删除
 - `/prompt` - 更改系统提示词，语法`/prompt <prompt>`
 - `/model` - 查看/切换模型，语法`/model <model>`
+- `/reloadurl` - 重新加载Base URL，防止网络问题导致无法连接
 - `/clear` - 清除对话 输入两次来确认删除
 - `/quit` - 退出
 - `/theme` - 切换主题（目前只有monokai主题）语法: /theme theme

@@ -53,9 +53,13 @@ class LMStudioClient(APIClient):
         stream = await self.client.chat.completions.create(
             model=model,
             messages=chat_messages,
-            stream=True
+            stream=True,
+            stream_options={"include_usage": True}
         )
         async for chunk in stream:
+            if hasattr(chunk, 'usage') and chunk.usage is not None:
+                yield StreamChunk(type="usage", content=str(chunk.usage.total_tokens))
+                continue
             delta = chunk.choices[0].delta
             if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                 yield StreamChunk(type="reasoning", content=delta.reasoning_content)

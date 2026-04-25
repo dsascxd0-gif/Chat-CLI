@@ -33,7 +33,15 @@ class MyCommand(Command):
             app.notify("My command executed")
 ```
 
-### Step 2: Register the command
+### Step 2: Import command
+
+Import command in `chat_cli/app.py` line 16
+
+```python
+from .commands import CommandRegistry, HelpCommand, ClearCommand, MyCommand, ThemeCommand, QuitCommand
+```
+
+### Step 3: Register the command
 
 Register the command in the `ChatApp._register_commands()` method inside `chat_cli/app.py`:
 
@@ -45,7 +53,7 @@ def _register_commands(self):
         self.command_registry.register(cmd_cls())
 ```
 
-### Step 3: Test
+### Step 4: Test
 
 Run the application and test:
 ```powershell
@@ -74,6 +82,11 @@ class TimeCommand(Command):
         app.state_manager.save(app.state)
 ```
 
+**Import command at `chat_cli\app.py` line 16**
+
+```python
+from .commands import CommandRegistry, HelpCommand, ClearCommand, TimeCommand, ThemeCommand, QuitCommand
+```
 **Register in `_register_commands()` inside `chat_cli/app.py`:**
 
 ```python

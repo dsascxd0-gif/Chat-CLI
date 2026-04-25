@@ -190,6 +190,18 @@ class SystemPromptCommand(Command):
             else:
                 app.notify("No system prompt set")
 
+class ReloadBaseURLCommand(Command):
+    name = "reloadurl"
+    description = "Reload models from current Base URL"
+
+    async def execute(self, app, args: str):
+        try:
+            models = await app.api.list_models()
+            app.model_cmd.set_models(models)
+            app.notify(f"Reloaded {len(models)} models from Base URL")
+            log_operation("Base URL reloaded")
+        except Exception as e:
+            app.notify(f"Failed to reload models: {e}")
 
 class DeleteCommand(Command):
     name = "del"

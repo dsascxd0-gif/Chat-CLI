@@ -13,8 +13,9 @@ from rich.console import Group
 from .api import LMStudioClient, Message, StreamChunk
 from .state import SessionState, StateManager
 from .session_manager import SessionManager
-from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ModelCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand
+from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ModelCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand, ReloadBaseURLCommand
 from .logging_config import log_operation, log_error, log_warning, log_info
+from .header import HeaderBar
 
 
 class CommandInput(Input):
@@ -157,6 +158,10 @@ class ChatApp(App):
     #session-list { height: 1fr; padding: 0; margin: 0; }
     ListItem { padding: 0 1; margin: 0; }
     #main-panel { width: 1fr; layout: vertical; }
+    #header { height: 1; }
+    #header-date { width: 33%; content-align: left middle; }
+    #header-time { width: 34%; content-align: center middle; }
+    #header-tokens { width: 33%; content-align: right middle; }
     #chat-view { height: 1fr; overflow-y: auto; }
     #input-bar { dock: bottom; height: 3; }
     Input { width: 100%; }
@@ -184,7 +189,7 @@ class ChatApp(App):
     def _register_commands(self):
         self.model_cmd = ModelCommand()
         self.command_registry.register(self.model_cmd)
-        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand]:
+        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand, ReloadBaseURLCommand]:
             self.command_registry.register(cmd_cls())
 
     def compose(self) -> ComposeResult:
@@ -193,6 +198,7 @@ class ChatApp(App):
                 yield Static("Sessions", id="sidebar-title")
                 yield ListView(id="session-list")
             with Vertical(id="main-panel"):
+                yield HeaderBar(id="header")
                 yield ListView(id="chat-view")
                 with Horizontal(id="input-bar"):
                     yield CommandInput(placeholder="Type a message or /help...", id="msg-input")
@@ -223,6 +229,7 @@ class ChatApp(App):
         # 刷新UI
         self.refresh_session_list()
         self.refresh_chat()
+        self.header = self.query_one("#header", HeaderBar)
         self.query_one("#msg-input").focus()
         
         # 加载模型
@@ -299,7 +306,6 @@ class ChatApp(App):
             suggestions.remove_class("visible")
             return
         
-        # Handle model suggestions for /model command
         if text.startswith("/model "):
             prefix = text[7:]
             models = getattr(self.model_cmd, '_available_models', [])
@@ -312,7 +318,6 @@ class ChatApp(App):
                     suggestions.remove_class("visible")
             return
         
-        # Original command suggestion logic
         if len(text) == 1:
             cmds = list(self.command_registry.all().keys())
             suggestions.update(" | ".join([f"/{c}" for c in cmds]))
@@ -369,6 +374,7 @@ class ChatApp(App):
         full_content = ""
         first_token = True
         content_start_time = None
+        session_tokens = 0
 
         try:
             async for chunk in self.api.chat_stream(self.state.messages[:-1], self.state.model, self.state.system_prompt):
@@ -379,17 +385,20 @@ class ChatApp(App):
                     if content_start_time is None:
                         content_start_time = now
                     elif now - content_start_time >= 1.0:
-                        # 延迟 1 秒后取消 thinking，确保不会闪烁
+                        # 延迟 1 秒后取消 thinking确保不会闪烁
                         thinking_task.cancel()
                         first_token = False
                 
+                if chunk.type == "usage":
+                    session_tokens += int(chunk.content)
+                    self.header.update_token_count(session_tokens)
+                    continue
+                
                 if isinstance(chunk, str):
-                    # Backwards compatibility
                     full_content += chunk
                     assistant_msg.content = full_content
                     widget.update_content(full_content, thinking=False, reasoning=full_reasoning)
                 else:
-                    # Handle StreamChunk
                     if chunk.type == "reasoning":
                         full_reasoning += chunk.content
                         assistant_msg.reasoning = full_reasoning

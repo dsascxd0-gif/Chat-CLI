@@ -35,6 +35,7 @@ python main.py
 - `/del` - Delete session. Syntax: `/del [session_name]` type again to confirm
 - `/prompt` - Set system prompt. Syntax: `/prompt <prompt>`
 - `/model` - View / switch model. Syntax: `/model <model>`
+- `/reloadurl` - Reload the base URL to prevent network issues from causing connection failures.
 - `/clear` - Clear conversation type again to confirm
 - `/quit` - Quit
 - `/theme` - Switch theme (currently only `monokai` is available). Syntax: `/theme <theme>`
