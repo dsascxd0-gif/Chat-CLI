@@ -32,10 +32,15 @@ python main.py
 - `/apikey` - 更改apikey，语法`/apikey apikey`
 - `/new` - 新建对话，语法`/new <title>`
 - `/title` - 更改对话标题，语法`/title <title>`
+<<<<<<< HEAD
 - `/del` - 删除会话，语法`/del <session name>` 输入两次来确认删除
 - `/prompt` - 更改系统提示词，语法`/prompt <prompt>`
 - `/model` - 查看/切换模型，语法`/model <model>`
 - `/clear` - 清除对话 输入两次来确认删除
+=======
+- `/model` - 查看/切换模型，语法`/model <model>`
+- `/clear` - 清除对话（此操作不可逆）
+>>>>>>> 4ade61ac2544131ba1f88af8e4e837b82d77a583
 - `/quit` - 退出
 - `/theme` - 切换主题（目前只有monokai主题）语法: /theme theme
 
