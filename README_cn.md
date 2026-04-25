@@ -28,10 +28,12 @@ python main.py
 ## 命令
 
 - `/help` - 显示帮助
-- `/baseurl` - 更改Base URL（更改的Base URL需要添加http或者https头部，例如`https://api.example.com/v1`或者`http://api.example.com/v1`）语法: /baseurl BaseURL
-- `/apikey` - 更改apikey，语法/apikey apikey
-- `/model` - 查看/切换模型，语法/model model
-- `/clear` - 清除对话
+- `/baseurl` - 更改Base URL（更改的Base URL需要添加http或者https头部，例如`https://api.example.com/v1`或者`http://api.example.com/v1`）语法: `/baseurl <BaseURL>`
+- `/apikey` - 更改apikey，语法`/apikey apikey`
+- `/new` - 新建对话，语法`/new <title>`
+- `/title` - 更改对话标题，语法`/title <title>`
+- `/model` - 查看/切换模型，语法`/model <model>`
+- `/clear` - 清除对话（此操作不可逆）
 - `/quit` - 退出
 - `/theme` - 切换主题（目前只有monokai主题）语法: /theme theme
 
