@@ -30,8 +30,12 @@ python main.py
 - `/help` - Show help
 - `/baseurl` - Change Base URL (the new Base URL must include the `http` or `https` prefix, e.g. `https://api.example.com/v1` or `http://api.example.com/v1`). Syntax: `/baseurl <BaseURL>`
 - `/apikey` - Change API key. Syntax: `/apikey <apikey>`
+- `/new` - Create new session. Syntax: `/new [title]`
+- `/title` - Set session title. Syntax: `/title <title>`
+- `/del` - Delete session. Syntax: `/del [session_name]` type again to confirm
+- `/prompt` - Set system prompt. Syntax: `/prompt <prompt>`
 - `/model` - View / switch model. Syntax: `/model <model>`
-- `/clear` - Clear conversation
+- `/clear` - Clear conversation type again to confirm
 - `/quit` - Quit
 - `/theme` - Switch theme (currently only `monokai` is available). Syntax: `/theme <theme>`
 

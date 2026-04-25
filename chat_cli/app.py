@@ -13,7 +13,7 @@ from rich.console import Group
 from .api import LMStudioClient, Message, StreamChunk
 from .state import SessionState, StateManager
 from .session_manager import SessionManager
-from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ModelCommand, ThemeCommand, QuitCommand
+from .commands import CommandRegistry, HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ModelCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand
 from .logging_config import log_operation, log_error, log_warning, log_info
 
 
@@ -178,11 +178,13 @@ class ChatApp(App):
         self._msg_widgets = {}
         self.current_session_file = ""
         self._thinking_task = None
+        self._pending_delete = False
+        self._pending_clear = False
 
     def _register_commands(self):
         self.model_cmd = ModelCommand()
         self.command_registry.register(self.model_cmd)
-        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ThemeCommand, QuitCommand]:
+        for cmd_cls in [HelpCommand, ClearCommand, BaseURLCommand, APIKeyCommand, NewSessionCommand, TitleCommand, ThemeCommand, QuitCommand, SystemPromptCommand, DeleteCommand]:
             self.command_registry.register(cmd_cls())
 
     def compose(self) -> ComposeResult:
@@ -369,7 +371,7 @@ class ChatApp(App):
         content_start_time = None
 
         try:
-            async for chunk in self.api.chat_stream(self.state.messages[:-1], self.state.model):
+            async for chunk in self.api.chat_stream(self.state.messages[:-1], self.state.model, self.state.system_prompt):
                 now = time.time()
                 
                 if first_token:

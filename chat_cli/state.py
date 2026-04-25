@@ -11,6 +11,7 @@ class SessionState:
         self.theme: str = "monokai"
         self.base_url: str = "http://127.0.0.1:1234/v1"
         self.api_key: str = "sk-not-needed"
+        self.system_prompt: str = ""
 
     def add_message(self, role: str, content: str, message_id: str = None, reasoning: str = ""):
         self.messages.append(Message(role, content, message_id, reasoning))
@@ -25,6 +26,7 @@ class SessionState:
             "theme": self.theme,
             "base_url": self.base_url,
             "api_key": self.api_key,
+            "system_prompt": self.system_prompt,
         }
         if title:
             data["title"] = title
@@ -37,6 +39,7 @@ class SessionState:
         s.theme = data.get("theme", "monokai")
         s.base_url = data.get("base_url", "http://127.0.0.1:1234/v1")
         s.api_key = data.get("api_key", "sk-not-needed")
+        s.system_prompt = data.get("system_prompt", "")
         for m in data.get("messages", []):
             s.messages.append(Message(m["role"], m["content"], m.get("message_id"), m.get("reasoning", "")))
         return s

@@ -104,6 +104,13 @@ class SessionManager:
             return self.create_session()
         return files[0].name
     
+    def delete_session(self, filename: str) -> bool:
+        path = self.sessions_dir / filename
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+    
     def migrate_from_old(self) -> bool:
         old_path = Path.home() / ".chat_cli" / "state.json"
         if old_path.exists() and not list(self.sessions_dir.glob("session-*.json")):

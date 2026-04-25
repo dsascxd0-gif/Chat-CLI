@@ -17,10 +17,10 @@ class Message:
 
 class APIClient(ABC):
     @abstractmethod
-    async def chat(self, messages: List[Message], model: str) -> str: ...
+    async def chat(self, messages: List[Message], model: str, system_prompt: str = "") -> str: ...
 
     @abstractmethod
-    async def chat_stream(self, messages: List[Message], model: str) -> AsyncIterator[StreamChunk]: ...
+    async def chat_stream(self, messages: List[Message], model: str, system_prompt: str = "") -> AsyncIterator[StreamChunk]: ...
 
     @abstractmethod
     async def list_models(self) -> List[str]: ...
@@ -34,17 +34,25 @@ class LMStudioClient(APIClient):
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         self.base_url = base_url.replace("/v1", "")
 
-    async def chat(self, messages: List[Message], model: str) -> str:
+    async def chat(self, messages: List[Message], model: str, system_prompt: str = "") -> str:
+        chat_messages = []
+        if system_prompt:
+            chat_messages.append({"role": "system", "content": system_prompt})
+        chat_messages.extend([{"role": m.role, "content": m.content} for m in messages])
         resp = await self.client.chat.completions.create(
             model=model,
-            messages=[{"role": m.role, "content": m.content} for m in messages]
+            messages=chat_messages
         )
         return resp.choices[0].message.content
 
-    async def chat_stream(self, messages: List[Message], model: str) -> AsyncIterator[StreamChunk]:
+    async def chat_stream(self, messages: List[Message], model: str, system_prompt: str = "") -> AsyncIterator[StreamChunk]:
+        chat_messages = []
+        if system_prompt:
+            chat_messages.append({"role": "system", "content": system_prompt})
+        chat_messages.extend([{"role": m.role, "content": m.content} for m in messages])
         stream = await self.client.chat.completions.create(
             model=model,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
+            messages=chat_messages,
             stream=True
         )
         async for chunk in stream:
